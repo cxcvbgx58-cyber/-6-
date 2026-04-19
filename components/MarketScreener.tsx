@@ -205,13 +205,26 @@ const CoinLogo = React.memo(({ baseAsset, size = "w-16 h-16", padding = "p-3" }:
   );
 });
 
+const TREND_CACHE = new Map<string, number[]>();
+
 const Sparkline = React.memo(({ symbol, exchange, market, isLong }: { symbol: string, exchange: string, market: string, isLong: boolean }) => {
   const [points, setPoints] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
+    const cacheKey = `${exchange}:${market}:${symbol}`;
+    
     const fetchSparkline = async () => {
+      // Check cache first
+      if (TREND_CACHE.has(cacheKey)) {
+        if (isMounted) {
+          setPoints(TREND_CACHE.get(cacheKey)!);
+          setLoading(false);
+        }
+        return;
+      }
+
       try {
         // Add a small random delay to stagger requests and avoid rate limits
         await new Promise(resolve => setTimeout(resolve, Math.random() * 2000));
@@ -238,6 +251,12 @@ const Sparkline = React.memo(({ symbol, exchange, market, isLong }: { symbol: st
         } else {
           closePrices = data.result.list.map((d: any) => parseFloat(d[4])).reverse();
         }
+
+        // Save to cache
+        if (closePrices.length > 0) {
+          TREND_CACHE.set(cacheKey, closePrices);
+        }
+
         setPoints(closePrices);
         setLoading(false);
       } catch (e) {
