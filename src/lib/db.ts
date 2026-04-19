@@ -188,6 +188,12 @@ export async function initializeDatabase() {
           status TEXT DEFAULT 'pending',
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS affiliate_stats (
+          user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+          earnings DECIMAL(20, 2) DEFAULT 0.00,
+          clicks INTEGER DEFAULT 0,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
       `);
     } catch (e) {
       console.warn('Error creating additional tables:', e instanceof Error ? e.message : e);
