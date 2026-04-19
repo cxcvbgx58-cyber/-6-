@@ -369,7 +369,12 @@ export interface MarketScreenerProps {
 }
 
 const isCoinExcluded = (coin: Partial<MarketCoin>) => {
-  return false;
+  if (!coin.baseAsset) return false;
+  const globalExclusions = [
+    'AGIX', 'ALPACA', 'ALPHA', 'LEVER', 'LINA', 
+    'MEMEFI', 'PORT3', 'SXP', 'USD1', 'UXLINK', 'VID'
+  ];
+  return globalExclusions.includes(coin.baseAsset.toUpperCase());
 };
 
 const MarketScreener: React.FC<MarketScreenerProps> = ({ 
