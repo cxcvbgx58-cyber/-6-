@@ -13,17 +13,8 @@ import { Language, translations } from '../src/translations';
 import { BINANCE_ICON, BYBIT_ICON } from '../src/constants';
 import { SmarteyeEngineService } from '../services/smarteye-engine.service';
 import { simulatorService } from '../services/trading-simulator.service';
-
-export interface MarketCoin {
-  symbol: string;
-  baseAsset: string;
-  price: number;
-  change24h: number;
-  volume24h: number;
-  market: 'SPOT' | 'FUTURES';
-  exchange: 'Binance' | 'Bybit';
-  logo: string;
-}
+import { isCoinExcluded } from '../src/lib/filters';
+import { MarketCoin } from '../models';
 
 type SortKey = 'price' | 'change' | 'volume' | 'none';
 type SortDir = 'asc' | 'desc';
@@ -367,10 +358,6 @@ export interface MarketScreenerProps {
   setSortConfig: React.Dispatch<React.SetStateAction<{ key: string; dir: 'asc' | 'desc' }>>;
   checkSubscription: (featureName: string) => boolean;
 }
-
-const isCoinExcluded = (coin: Partial<MarketCoin>) => {
-  return false;
-};
 
 const MarketScreener: React.FC<MarketScreenerProps> = ({ 
   language = 'ru', 
@@ -961,10 +948,17 @@ const MarketScreener: React.FC<MarketScreenerProps> = ({
           scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
         }
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        // Targeted anchor scroll if ref-based scroll-to-zero wasn't enough
-        const topAnchor = document.getElementById('screener-top-anchor');
-        if (topAnchor) {
-          topAnchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        
+        // Target the Dashboard's global header for absolute top scroll
+        const appHeader = document.getElementById('app-header');
+        if (appHeader) {
+          appHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+          // Fallback to internal anchor
+          const topAnchor = document.getElementById('screener-top-anchor');
+          if (topAnchor) {
+            topAnchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
         }
       }, 60);
     }

@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import Table from './Table';
-import MarketScreener, { MarketCoin, FavoriteStar, CustomUndoIcon, CustomRedoIcon } from './MarketScreener';
+import MarketScreener, { FavoriteStar, CustomUndoIcon, CustomRedoIcon } from './MarketScreener';
 import { AIBookModal } from './AIBookModal';
 import { ExchangeLogo } from './UI/Shared';
 import { BINANCE_ICON, BYBIT_ICON } from '../src/constants';
@@ -10,7 +10,7 @@ import { ChartBlock } from './ChartBlock';
 
 const MemoTable = React.memo(Table);
 const MemoMarketScreener = React.memo(MarketScreener);
-import { RowData, SettingsState, ExchangeSelection, MarketType, ExchangeConfig, STORAGE_PREFIX, DEFAULT_SETTINGS, getConfigsForMarket, DBUser } from '../models';
+import { RowData, SettingsState, ExchangeSelection, MarketType, ExchangeConfig, STORAGE_PREFIX, DEFAULT_SETTINGS, getConfigsForMarket, DBUser, MarketCoin } from '../models';
 import { SmarteyeEngineService, CONFIG } from '../services/smarteye-engine.service';
 import { User, Settings, ChevronDown, LayoutGrid, Check, Globe, RotateCcw, Star, Loader2, ChevronUp, BrainCircuit, ArrowUp, ArrowDown, BarChart2, Rewind, X, Maximize, Minimize, LogOut, Volume2 } from 'lucide-react';
 import { Logo } from './UI/Icons';
@@ -20,6 +20,7 @@ import { SubscriptionAvatar } from './UI/SubscriptionAvatar';
 import { SubscriptionPrompt } from './UI/SubscriptionPrompt';
 import { apiService } from '../services/api.service';
 import { simulatorService } from '../services/trading-simulator.service';
+import { isCoinExcluded } from '../src/lib/filters';
 
 import { LanguageSwitcher } from '../src/components/UI/LanguageSwitcher';
 
@@ -592,8 +593,12 @@ const Dashboard: React.FC<{
   }, [engine]);
 
   useEffect(() => {
-    const subL = engine.longs$.subscribe(setLongData);
-    const subS = engine.shorts$.subscribe(setShortData);
+    const subL = engine.longs$.subscribe(data => {
+      setLongData(data.filter(d => !isCoinExcluded(d)));
+    });
+    const subS = engine.shorts$.subscribe(data => {
+      setShortData(data.filter(d => !isCoinExcluded(d)));
+    });
     engine.startPipeline(CONFIG.engineTickMs, (t) => t === 'SPOT' ? spotSettingsRef.current : futuresSettingsRef.current);
     
     const handleClickOutside = (event: MouseEvent) => {
@@ -667,6 +672,20 @@ const Dashboard: React.FC<{
       // Feature-level restrictions are handled separately
       if (isInitializing.current || isSameCoin || isInitialLoad || dbUser || true) {
         setPreviewCoin(action);
+        
+        // Scroll to top when changing coin from the dashboard (e.g., from Densities table)
+        if (!isInitialLoad && !isSameCoin) {
+          setTimeout(() => {
+            const header = document.getElementById('app-header');
+            if (header) {
+              header.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            if (scrollContainerRef.current) {
+              scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }, 50);
+        }
       }
     } else {
       setPreviewCoin(null);
@@ -675,7 +694,7 @@ const Dashboard: React.FC<{
 
   return (
     <div className="h-full w-full bg-black text-white p-0 flex flex-col overflow-hidden relative">
-      <div className={`sticky top-0 z-[10000] flex flex-col shrink-0 border-b border-white/10 ${isFullscreen || isAiBookOpen ? 'hidden md:flex' : ''}`}>
+      <div id="app-header" className={`sticky top-0 z-[10000] flex flex-col shrink-0 border-b border-white/10 ${isFullscreen || isAiBookOpen ? 'hidden md:flex' : ''}`}>
         {/* TOP ROW: LOGO + MAIN NAV + TOOLS */}
         <div className="flex justify-between items-center h-11 md:h-14 bg-black pl-1 pr-1 md:px-2 border-b border-white/5">
           <div className="flex items-center gap-1 md:gap-1">

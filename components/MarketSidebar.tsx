@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Bell, Newspaper, Plus, Gauge, ChevronRight, ChevronLeft, Info, ExternalLink, RefreshCw, Trash2, ArrowUp, ArrowDown, X, Wallet, History, TrendingUp, Rewind, Pause, Play, FastForward, BarChart2, Search, Brush, Ruler, Magnet, MousePointer2 } from 'lucide-react';
 import { CandlestickPlusIcon } from './UI/Icons';
 import { Language, translations } from '../src/translations';
-import { MarketCoin } from './MarketScreener';
+import { MarketCoin } from '../models';
 import { simulatorService, SimulatorState, Position } from '../services/trading-simulator.service';
 
 interface MarketSidebarProps {
