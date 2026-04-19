@@ -596,9 +596,8 @@ const MarketScreener: React.FC<MarketScreenerProps> = ({
 
   useEffect(() => {
     latestPropsRef.current = { previewCoin, activeExchanges, activeTypes, isSettingsLoaded };
-    if (previewCoin) {
-      currentPreviewRef.current = previewCoin;
-    }
+    // Always sync currentPreviewRef with the latest prop, including if it's null
+    currentPreviewRef.current = previewCoin;
   }, [previewCoin, activeExchanges, activeTypes, isSettingsLoaded]);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -735,25 +734,43 @@ const MarketScreener: React.FC<MarketScreenerProps> = ({
       if (allRawData.length > 0) {
         setData(allRawData);
         
-        // Sync ref with latest prop if needed
-        if (!currentPreviewRef.current && latestPreviewCoin) {
-          currentPreviewRef.current = latestPreviewCoin;
+        // Re-read latest data from props ref to avoid race conditions during the async fetch
+        const { 
+          previewCoin: freshPreviewCoin, 
+          activeExchanges: freshExchanges, 
+          activeTypes: freshTypes,
+          isSettingsLoaded: freshSettingsLoaded
+        } = latestPropsRef.current;
+
+        // Ensure currentPreviewRef is synced with the very latest prop value
+        if (freshPreviewCoin) {
+          currentPreviewRef.current = freshPreviewCoin;
         }
 
-        if (!currentPreviewRef.current && latestSettingsLoaded) {
-            const filtered = allRawData.filter(c => latestExchanges[c.exchange] && latestTypes[c.market]);
+        if (!currentPreviewRef.current && freshSettingsLoaded) {
+            // Only set a default if we truly have no coin and settings are done loading
+            const filtered = allRawData.filter(c => freshExchanges[c.exchange] && freshTypes[c.market]);
             const defaultCoin = filtered[0] || allRawData[0] || null;
-            setPreviewCoin(defaultCoin);
-            currentPreviewRef.current = defaultCoin;
+            if (defaultCoin) {
+              setPreviewCoin(defaultCoin);
+              currentPreviewRef.current = defaultCoin;
+            }
         } else if (currentPreviewRef.current) {
+          // Update the current coin with fresh data (price/volume)
           const updated = allRawData.find(c => 
             c.symbol === currentPreviewRef.current?.symbol && 
             c.market === currentPreviewRef.current?.market && 
             c.exchange === currentPreviewRef.current?.exchange
           );
           if (updated) {
-            setPreviewCoin(updated);
-            currentPreviewRef.current = updated;
+            // Only update if something actually changed to avoid unnecessary re-renders
+            const hasChanged = updated.price !== currentPreviewRef.current?.price || 
+                               updated.change24h !== currentPreviewRef.current?.change24h;
+            
+            if (hasChanged) {
+              setPreviewCoin(updated);
+              currentPreviewRef.current = updated;
+            }
           }
         }
       }

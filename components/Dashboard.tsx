@@ -603,6 +603,27 @@ const Dashboard: React.FC<{
     { key: 'Bybit Futures', name: 'Bybit', sub: 'ФЬЮЧЕРС', logo: BYBIT_ICON },
   ];
 
+  const handleSetPreviewCoin = useCallback((action: React.SetStateAction<MarketCoin | null>) => {
+    if (typeof action === 'function') {
+      setPreviewCoin(action);
+    } else if (action) {
+      const isSameCoin = previewCoin && 
+        action.symbol === previewCoin.symbol && 
+        action.exchange === previewCoin.exchange && 
+        action.market === previewCoin.market;
+      
+      const isInitialLoad = !previewCoin;
+      
+      // Allow switching coins for preview/browsing even without auth
+      // Feature-level restrictions are handled separately
+      if (isInitializing.current || isSameCoin || isInitialLoad || dbUser || true) {
+        setPreviewCoin(action);
+      }
+    } else {
+      setPreviewCoin(null);
+    }
+  }, [previewCoin, dbUser]);
+
   return (
     <div className="h-full w-full bg-black text-white p-0 flex flex-col overflow-hidden relative">
       <div className={`sticky top-0 z-[10000] flex flex-col shrink-0 border-b border-white/10 ${isFullscreen || isAiBookOpen ? 'hidden md:flex' : ''}`}>
@@ -857,26 +878,7 @@ const Dashboard: React.FC<{
                 <MemoMarketScreener 
                   language={language} 
                   previewCoin={previewCoin}
-                  setPreviewCoin={(action) => {
-                    if (typeof action === 'function') {
-                      setPreviewCoin(action);
-                    } else if (action) {
-                      // Allow setting the coin if:
-                      // 1. We are in the initial setup phase
-                      // 2. It's the same coin (symbol, exchange, and market match)
-                      // 3. There is no coin selected yet (initial load)
-                      const isSameCoin = previewCoin && 
-                        action.symbol === previewCoin.symbol && 
-                        action.exchange === previewCoin.exchange && 
-                        action.market === previewCoin.market;
-                      
-                      const isInitialLoad = !previewCoin;
-                      
-                      if (isInitializing.current || isSameCoin || isInitialLoad || checkAuth()) {
-                        setPreviewCoin(action);
-                      }
-                    }
-                  }}
+                  setPreviewCoin={handleSetPreviewCoin}
                   timeframe={timeframe}
                   setTimeframe={setTimeframe}
                   miniChartRef={miniChartRef}
