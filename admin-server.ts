@@ -310,6 +310,14 @@ async function startServer() {
             is_read BOOLEAN DEFAULT false
           );
         `);
+        
+        // COLUMN VALIDATION LOGS (Helpful for debugging)
+        const refCols = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'referrals'");
+        console.log("Referrals table columns:", refCols.rows.map(r => r.column_name).join(", "));
+        
+        const affCols = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'affiliate_stats'");
+        console.log("Affiliate Stats columns:", affCols.rows.map(r => r.column_name).join(", "));
+
         console.log("Admin Database schema verified and patched.");
       } catch (e) {
         console.error("Failed to verify database schema on admin startup:", e);
