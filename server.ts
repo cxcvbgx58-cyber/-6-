@@ -699,6 +699,238 @@ async function startServer() {
     }
   });
 
+  // API Routes
+  app.get("/api/admin/users", async (req, res) => {
+    try {
+      const result = await query(`
+        SELECT 
+          u.*,
+          p.plan_tier as subscription_type,
+          p.purchase_date as subscription_start,
+          p.expiry_date as subscription_end,
+          (
+            SELECT json_agg(h ORDER BY h.purchase_date DESC)
+            FROM premium_purchases h
+            WHERE h.user_id = u.id
+          ) as subscription_history,
+          COALESCE(u.referral_income, 0) as referral_income,
+          COALESCE(u.referral_clicks, 0) as referral_clicks,
+          (
+            SELECT COUNT(*)
+            FROM referrals r
+            WHERE r.referrer_id = u.id
+          ) as total_referrals,
+          (
+            SELECT json_agg(w ORDER BY w.created_at DESC)
+            FROM withdrawals w
+            WHERE w.user_id = u.id AND w.status = 'pending'
+          ) as pending_withdrawals,
+          (
+            SELECT json_agg(w ORDER BY w.created_at DESC)
+            FROM withdrawals w
+            WHERE w.user_id = u.id AND w.status = 'completed'
+          ) as withdrawal_history
+        FROM users u
+        LEFT JOIN (
+          SELECT DISTINCT ON (user_id) 
+            user_id, plan_tier, purchase_date, expiry_date
+          FROM premium_purchases
+          ORDER BY user_id, purchase_date DESC
+        ) p ON u.id = p.user_id
+        ORDER BY u.created_at DESC
+      `);
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Admin user fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  app.get("/api/admin/tables", async (req, res) => {
+    try {
+      const result = await query(`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public'
+      `);
+      res.json(result.rows);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch tables" });
+    }
+  });
+
+  app.get("/api/admin/schema", async (req, res) => {
+    try {
+      const result = await query(`
+        SELECT column_name, data_type 
+        FROM information_schema.columns 
+        WHERE table_name = 'users'
+      `);
+      res.json(result.rows);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch schema" });
+    }
+  });
+
+  app.post("/api/admin/withdrawals/:id/confirm", async (req, res) => {
+    const { id } = req.params;
+    try {
+      await query("UPDATE withdrawals SET status = 'completed' WHERE id = $1", [id]);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to confirm withdrawal" });
+    }
+  });
+
+  app.put("/api/admin/users/:id", express.json(), async (req, res) => {
+    const { id } = req.params;
+    const { email, username, referral_income, subscription_type, subscription_end } = req.body;
+    try {
+      await query(
+        "UPDATE users SET email = $1, username = $2, referral_income = $3 WHERE id = $4",
+        [email, username, referral_income || 0, id]
+      );
+      if (subscription_type || subscription_end) {
+        await query(`
+          INSERT INTO premium_purchases (user_id, plan_tier, amount, purchase_date, expiry_date)
+          VALUES ($1, $2, 0, NOW(), $3)
+        `, [id, subscription_type || 'Premium', subscription_end || null]);
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", async (req, res) => {
+    const { id } = req.params;
+    try {
+      await query("DELETE FROM users WHERE id = $1", [id]);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete user" });
+    }
+  });
+
+  // Support Chat Unified logic (Broadcasts to user WebSocket)
+  app.post("/api/support/messages", express.json(), async (req, res) => {
+    const { userId, message } = req.body;
+    const senderRole = req.body.senderRole || req.body.sender_role || 'user';
+    
+    if (!userId || !message) return res.status(400).json({ error: "Missing data" });
+
+    try {
+      const result = await query(
+        "INSERT INTO support_messages (user_id, message, sender_role, sender_type) VALUES ($1, $2, $3, $3) RETURNING *",
+        [userId, message, senderRole]
+      );
+      
+      const targetMessage = result.rows[0];
+
+      // WebSocket broadcast (For REAL-TIME delivery)
+      wss.clients.forEach((client: any) => {
+        if (client.readyState === 1 && client.userId === userId) {
+          client.send(JSON.stringify({
+            type: "SUPPORT_MESSAGE_RECEIVED",
+            message: targetMessage
+          }));
+        }
+      });
+
+      res.json(targetMessage);
+    } catch (error) {
+      console.error("Support API error:", error);
+      res.status(500).json({ error: "Failed to send message" });
+    }
+  });
+
+  // Admin Support APIs
+  app.get("/api/support/sessions", async (req, res) => {
+    try {
+      const result = await query(`
+        SELECT DISTINCT ON (m.user_id) 
+          m.user_id, 
+          u.email, 
+          u.username,
+          m.message as last_message, 
+          m.created_at as last_message_at,
+          (SELECT COUNT(*) FROM support_messages WHERE user_id = m.user_id AND is_read = false AND sender_role = 'user') as unread_count
+        FROM support_messages m
+        JOIN users u ON m.user_id = u.id
+        ORDER BY m.user_id, m.created_at DESC
+      `);
+      res.json(result.rows);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch support sessions" });
+    }
+  });
+
+  app.get("/api/support/messages/:userId", async (req, res) => {
+    const { userId } = req.params;
+    const { role } = req.query; // admin or user
+    try {
+      const result = await query(
+        "SELECT * FROM support_messages WHERE user_id = $1 ORDER BY created_at ASC",
+        [userId]
+      );
+      if (role === 'admin') {
+        await query(
+          "UPDATE support_messages SET is_read = true WHERE user_id = $1 AND sender_role = 'user'",
+          [userId]
+        );
+      }
+      res.json(result.rows);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch messages" });
+    }
+  });
+
+  app.get("/api/users", async (req, res) => {
+    try {
+      const result = await query(`
+        SELECT 
+          u.*,
+          p.plan_tier as subscription_type,
+          p.purchase_date as subscription_start,
+          p.expiry_date as subscription_end,
+          (
+            SELECT json_agg(h ORDER BY h.purchase_date DESC)
+            FROM premium_purchases h
+            WHERE h.user_id = u.id
+          ) as subscription_history,
+          COALESCE(u.referral_income, 0) as referral_income,
+          COALESCE(u.referral_clicks, 0) as referral_clicks,
+          (
+            SELECT COUNT(*)
+            FROM referrals r
+            WHERE r.referrer_id = u.id
+          ) as total_referrals,
+          (
+            SELECT json_agg(w ORDER BY w.created_at DESC)
+            FROM withdrawals w
+            WHERE w.user_id = u.id AND w.status = 'pending'
+          ) as pending_withdrawals,
+          (
+            SELECT json_agg(w ORDER BY w.created_at DESC)
+            FROM withdrawals w
+            WHERE w.user_id = u.id AND w.status = 'completed'
+          ) as withdrawal_history
+        FROM users u
+        LEFT JOIN (
+          SELECT DISTINCT ON (user_id) 
+            user_id, plan_tier, purchase_date, expiry_date
+          FROM premium_purchases
+          ORDER BY user_id, purchase_date DESC
+        ) p ON u.id = p.user_id
+        ORDER BY u.created_at DESC
+      `);
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Admin user list error:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
   app.get("/api/users/:email", async (req, res) => {
     const { email } = req.params;
     try {
@@ -1331,6 +1563,11 @@ async function startServer() {
         if (payload.type === "IDENTIFY") {
           clientWs.userId = payload.userId;
           console.log(`[WS Support] Client identified as ${payload.userId}`);
+          
+          // Update online status
+          query("UPDATE users SET is_online = true, last_seen = NOW() WHERE id = $1", [payload.userId]).catch(err => {
+            console.error("Failed to update is_online status:", err);
+          });
           return;
         }
 
@@ -1427,7 +1664,14 @@ async function startServer() {
     }, 2000);
 
     clientWs.on("close", () => {
-      console.log("[WS Proxy] Client disconnected");
+      console.log(`[WS Proxy] Client disconnected: ${clientWs.userId || 'anonymous'}`);
+      
+      if (clientWs.userId) {
+        query("UPDATE users SET is_online = false, last_seen = NOW() WHERE id = $1", [clientWs.userId]).catch(err => {
+          console.error("Failed to update offline status:", err);
+        });
+      }
+      
       clearInterval(heartbeatInterval);
       clientSubscriptions.forEach(key => {
         exchangeSubscribers.get(key)?.delete(clientWs);

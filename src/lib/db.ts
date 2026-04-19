@@ -100,7 +100,11 @@ export async function initializeDatabase() {
       { name: 'balance', type: 'DECIMAL(20, 2)', default: '1000.00' },
       { name: 'role', type: 'TEXT', default: "'user'" },
       { name: 'referrer_id', type: 'UUID REFERENCES users(id) ON DELETE SET NULL' },
-      { name: 'support_message', type: 'TEXT' }
+      { name: 'support_message', type: 'TEXT' },
+      { name: 'referral_income', type: 'DECIMAL(20, 2)', default: '0.00' },
+      { name: 'referral_clicks', type: 'INTEGER', default: '0' },
+      { name: 'is_online', type: 'BOOLEAN', default: 'false' },
+      { name: 'last_seen', type: 'TIMESTAMPTZ', default: 'NOW()' }
     ];
 
     for (const col of columnsToAdd) {
