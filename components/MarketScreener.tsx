@@ -950,11 +950,23 @@ const MarketScreener: React.FC<MarketScreenerProps> = ({
     if (shouldBlur && searchInputRef.current) searchInputRef.current.blur();
     if (clearSearch) setSearch(''); 
     if (scrollToTop) {
-      if (chartContainerRef.current) {
-        chartContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
       }
+      window.scrollTo(0, 0);
+      
+      // More aggressive cleanup with a small delay
+      setTimeout(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        // Targeted anchor scroll if ref-based scroll-to-zero wasn't enough
+        const topAnchor = document.getElementById('screener-top-anchor');
+        if (topAnchor) {
+          topAnchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 60);
     }
   }, [chartLayout, previewCoin]);
 
@@ -1045,6 +1057,7 @@ const MarketScreener: React.FC<MarketScreenerProps> = ({
         ref={scrollContainerRef}
         className={`flex-1 overflow-y-auto custom-scroll flex flex-col bg-[#050505] ${isResizing ? 'select-none cursor-row-resize' : ''}`}
       >
+        <div id="screener-top-anchor" className="h-0 w-0 opacity-0 pointer-events-none" />
         {/* ОБЛАСТЬ ГРАФИКА - ТЕПЕРЬ ВНУТРИ ПРОКРУТКИ И ЗАКРЕПЛЕНА */}
         <div 
           ref={chartContainerRef}
