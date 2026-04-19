@@ -13,6 +13,7 @@
   "dependencies": {
     "@google/genai": "^1.43.0",
     "@tailwindcss/vite": "^4.0.0",
+    "@types/react-window": "^1.8.8",
     "axios": "^1.13.6",
     "bcryptjs": "^3.0.3",
     "canvas-confetti": "^1.9.4",
@@ -27,6 +28,8 @@
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-markdown": "^10.1.0",
+    "react-virtuoso": "^4.18.5",
+    "react-window": "^2.2.7",
     "recharts": "^3.8.1",
     "remark-gfm": "^4.0.1",
     "rxjs": "^7.8.2",
