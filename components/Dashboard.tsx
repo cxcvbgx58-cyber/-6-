@@ -56,38 +56,100 @@ const Dashboard: React.FC<{
   const [rankMap, setRankMap] = useState<Record<string, number>>({});
   
   // Shared state for MarketScreener, Header, and Sidebar
-  const [previewCoin, setPreviewCoin] = useState<MarketCoin | null>(null);
-  const [timeframe, setTimeframe] = useState('1m');
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [previewCoin, setPreviewCoin] = useState<MarketCoin | null>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('smarteye_activeCoin');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) { return null; }
+      }
+    }
+    return null;
+  });
+  const [timeframe, setTimeframe] = useState(() => {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('smarteye_timeframe') || '1m';
+    }
+    return '1m';
+  });
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('smarteye_favorites');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
   const [showExtraTf, setShowExtraTf] = useState(false);
   const [priceFlash, setPriceFlash] = useState(false);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
-  const [chartLayout, setChartLayout] = useState(1);
+  const [chartLayout, setChartLayout] = useState(() => {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('smarteye_chartLayout');
+      return saved ? Number(saved) : 1;
+    }
+    return 1;
+  });
   const [isReplayMode, setIsReplayMode] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [replaySpeed, setReplaySpeed] = useState(1000);
   const [alerts, setAlerts] = useState<{ id: string; symbol: string; price: number; type: 'above' | 'below' }[]>([]);
-  const [comparisonCoins, setComparisonCoins] = useState<MarketCoin[]>([]);
+  const [comparisonCoins, setComparisonCoins] = useState<MarketCoin[]>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('smarteye_comparisonCoins');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [magnetEnabled, setMagnetEnabled] = useState(false);
   const [isCoinSelectorOpen, setIsCoinSelectorOpen] = useState(false);
   const [selectorSlotIndex, setSelectorSlotIndex] = useState<number | null>(null);
-  const [drawings, setDrawings] = useState<Record<string, any[]>>({});
-  const [activeExchanges, setActiveExchanges] = useState<Record<string, boolean>>({
-    'Binance': true,
-    'Bybit': true
+  const [drawings, setDrawings] = useState<Record<string, any[]>>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('smarteye_drawings');
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
   });
-  const [activeTypes, setActiveTypes] = useState<Record<string, boolean>>({
-    'SPOT': true,
-    'FUTURES': true
+  const [activeExchanges, setActiveExchanges] = useState<Record<string, boolean>>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('smarteye_activeExchanges');
+      return saved ? JSON.parse(saved) : { 'Binance': true, 'Bybit': true };
+    }
+    return { 'Binance': true, 'Bybit': true };
   });
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
-  const [sortConfig, setSortConfig] = useState<{ key: string, dir: 'asc' | 'desc' }>({ key: 'none', dir: 'desc' });
+  const [activeTypes, setActiveTypes] = useState<Record<string, boolean>>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('smarteye_activeTypes');
+      return saved ? JSON.parse(saved) : { 'SPOT': true, 'FUTURES': true };
+    }
+    return { 'SPOT': true, 'FUTURES': true };
+  });
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
+    if (typeof localStorage !== 'undefined') {
+      return (localStorage.getItem('smarteye_viewMode') as 'list' | 'grid') || 'list';
+    }
+    return 'list';
+  });
+  const [sortConfig, setSortConfig] = useState<{ key: string, dir: 'asc' | 'desc' }>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('smarteye_sortConfig');
+      return saved ? JSON.parse(saved) : { key: 'none', dir: 'desc' };
+    }
+    return { key: 'none', dir: 'desc' };
+  });
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
 
-  const [selectedExchanges, setSelectedExchanges] = useState<ExchangeSelection>({ 
-    'Binance Spot': true, 'Binance Futures': true, 'Bybit Spot': true, 'Bybit Futures': true
+  const [selectedExchanges, setSelectedExchanges] = useState<ExchangeSelection>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('smarteye_selectedExchanges');
+      return saved ? JSON.parse(saved) : { 
+        'Binance Spot': true, 'Binance Futures': true, 'Bybit Spot': true, 'Bybit Futures': true
+      };
+    }
+    return { 'Binance Spot': true, 'Binance Futures': true, 'Bybit Spot': true, 'Bybit Futures': true };
   });
 
   const [showSubscriptionPrompt, setShowSubscriptionPrompt] = useState(false);
@@ -252,40 +314,8 @@ const Dashboard: React.FC<{
         await loadSettings();
         simulatorService.setUserId(dbUser.id, dbUser.balance);
       } else {
+        // When not logged in, we already loaded from localStorage via initializers
         simulatorService.setUserId(null);
-        // Fallback to local storage if not logged in
-        const savedFavs = localStorage.getItem('smarteye_favorites');
-        if (savedFavs) setFavorites(JSON.parse(savedFavs));
-        
-        const savedExchanges = localStorage.getItem('smarteye_activeExchanges');
-        if (savedExchanges) setActiveExchanges(JSON.parse(savedExchanges));
-        
-        const savedTypes = localStorage.getItem('smarteye_activeTypes');
-        if (savedTypes) setActiveTypes(JSON.parse(savedTypes));
-
-        const savedViewMode = localStorage.getItem('smarteye_viewMode');
-        if (savedViewMode) setViewMode(savedViewMode as 'list' | 'grid');
-
-        const savedSortConfig = localStorage.getItem('smarteye_sortConfig');
-        if (savedSortConfig) setSortConfig(JSON.parse(savedSortConfig));
-
-        const savedComparison = localStorage.getItem('smarteye_comparisonCoins');
-        if (savedComparison) setComparisonCoins(JSON.parse(savedComparison));
-
-        const savedLayout = localStorage.getItem('smarteye_chartLayout');
-        if (savedLayout) setChartLayout(Number(savedLayout));
-
-        const savedSelectedExchanges = localStorage.getItem('smarteye_selectedExchanges');
-        if (savedSelectedExchanges) setSelectedExchanges(JSON.parse(savedSelectedExchanges));
-
-        const savedActiveCoin = localStorage.getItem('smarteye_activeCoin');
-        if (savedActiveCoin) setPreviewCoin(JSON.parse(savedActiveCoin));
-
-        const savedDrawings = localStorage.getItem('smarteye_drawings');
-        if (savedDrawings) setDrawings(JSON.parse(savedDrawings));
-
-        const savedTimeframe = localStorage.getItem('smarteye_timeframe');
-        if (savedTimeframe) setTimeframe(savedTimeframe);
       }
       setIsSettingsLoaded(true);
     };

@@ -731,10 +731,9 @@ const MarketScreener: React.FC<MarketScreenerProps> = ({
         isSettingsLoaded: latestSettingsLoaded
       } = latestPropsRef.current;
 
-      if (allRawData.length > 0) {
+        if (allRawData.length > 0) {
         setData(allRawData);
         
-        // Re-read latest data from props ref to avoid race conditions during the async fetch
         const { 
           previewCoin: freshPreviewCoin, 
           activeExchanges: freshExchanges, 
@@ -742,28 +741,35 @@ const MarketScreener: React.FC<MarketScreenerProps> = ({
           isSettingsLoaded: freshSettingsLoaded
         } = latestPropsRef.current;
 
-        // Ensure currentPreviewRef is synced with the very latest prop value
         if (freshPreviewCoin) {
           currentPreviewRef.current = freshPreviewCoin;
         }
 
         if (!currentPreviewRef.current && freshSettingsLoaded) {
-            // Only set a default if we truly have no coin and settings are done loading
+            // First, try to filter by active settings
             const filtered = allRawData.filter(c => freshExchanges[c.exchange] && freshTypes[c.market]);
-            const defaultCoin = filtered[0] || allRawData[0] || null;
+            
+            // Prefer BTC as the absolute default if no selection exists
+            const defaultCoin = filtered.find(c => c.baseAsset === 'BTC' && c.market === 'SPOT') || 
+                                filtered[0] || 
+                                allRawData.find(c => c.baseAsset === 'BTC') ||
+                                allRawData[0] || 
+                                null;
+            
             if (defaultCoin) {
               setPreviewCoin(defaultCoin);
               currentPreviewRef.current = defaultCoin;
+              // Also save to localStorage immediately to prevent subsequent flashes
+              localStorage.setItem('smarteye_activeCoin', JSON.stringify(defaultCoin));
             }
         } else if (currentPreviewRef.current) {
-          // Update the current coin with fresh data (price/volume)
+          // Update the existing coin's real-time data
           const updated = allRawData.find(c => 
             c.symbol === currentPreviewRef.current?.symbol && 
             c.market === currentPreviewRef.current?.market && 
             c.exchange === currentPreviewRef.current?.exchange
           );
           if (updated) {
-            // Only update if something actually changed to avoid unnecessary re-renders
             const hasChanged = updated.price !== currentPreviewRef.current?.price || 
                                updated.change24h !== currentPreviewRef.current?.change24h;
             
@@ -787,6 +793,23 @@ const MarketScreener: React.FC<MarketScreenerProps> = ({
     const interval = setInterval(fetchData, 8000);
     return () => clearInterval(interval);
   }, []);
+
+  // Ensure default coin selection triggers as soon as data and settings are both ready
+  useEffect(() => {
+    if (isSettingsLoaded && !previewCoin && data.length > 0) {
+      const filtered = data.filter(c => activeExchanges[c.exchange] && activeTypes[c.market]);
+      const defaultCoin = filtered.find(c => c.baseAsset === 'BTC' && c.market === 'SPOT') || 
+                          filtered[0] || 
+                          data.find(c => c.baseAsset === 'BTC') ||
+                          data[0];
+      
+      if (defaultCoin) {
+        setPreviewCoin(defaultCoin);
+        currentPreviewRef.current = defaultCoin;
+        localStorage.setItem('smarteye_activeCoin', JSON.stringify(defaultCoin));
+      }
+    }
+  }, [isSettingsLoaded, data.length, previewCoin, activeExchanges, activeTypes]);
 
   // Real-time price updates for the previewed coin via server proxy
   useEffect(() => {
