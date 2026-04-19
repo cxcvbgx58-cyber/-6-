@@ -3,7 +3,8 @@ import { X, Zap, BookOpen, ShieldCheck, TrendingUp, TrendingDown, Minus, Externa
 import { AIIcon } from './UI/Icons';
 import { AIService, AIInsightResponse } from '../services/ai.service';
 import { Language, translations } from '../src/translations';
-import { MarketCoin, RowData } from '../models';
+import { MarketCoin } from './MarketScreener';
+import { RowData } from '../models';
 
 interface AIBookModalProps {
   coin: MarketCoin | RowData;

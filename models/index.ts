@@ -1,17 +1,6 @@
 
 export type MarketType = 'SPOT'|'FUTURES';
 
-export interface MarketCoin {
-  symbol: string;
-  baseAsset: string;
-  price: number;
-  change24h: number;
-  volume24h: number;
-  market: 'SPOT' | 'FUTURES';
-  exchange: 'Binance' | 'Bybit';
-  logo: string;
-}
-
 export type Side = 'bid' | 'ask';
 
 export interface OrderBookLevel {

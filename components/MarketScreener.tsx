@@ -13,8 +13,17 @@ import { Language, translations } from '../src/translations';
 import { BINANCE_ICON, BYBIT_ICON } from '../src/constants';
 import { SmarteyeEngineService } from '../services/smarteye-engine.service';
 import { simulatorService } from '../services/trading-simulator.service';
-import { isCoinExcluded } from '../src/lib/filters';
-import { MarketCoin } from '../models';
+
+export interface MarketCoin {
+  symbol: string;
+  baseAsset: string;
+  price: number;
+  change24h: number;
+  volume24h: number;
+  market: 'SPOT' | 'FUTURES';
+  exchange: 'Binance' | 'Bybit';
+  logo: string;
+}
 
 type SortKey = 'price' | 'change' | 'volume' | 'none';
 type SortDir = 'asc' | 'desc';
@@ -358,6 +367,10 @@ export interface MarketScreenerProps {
   setSortConfig: React.Dispatch<React.SetStateAction<{ key: string; dir: 'asc' | 'desc' }>>;
   checkSubscription: (featureName: string) => boolean;
 }
+
+const isCoinExcluded = (coin: Partial<MarketCoin>) => {
+  return false;
+};
 
 const MarketScreener: React.FC<MarketScreenerProps> = ({ 
   language = 'ru', 

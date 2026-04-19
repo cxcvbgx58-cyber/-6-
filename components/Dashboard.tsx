@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import Table from './Table';
-import MarketScreener, { FavoriteStar, CustomUndoIcon, CustomRedoIcon } from './MarketScreener';
+import MarketScreener, { MarketCoin, FavoriteStar, CustomUndoIcon, CustomRedoIcon } from './MarketScreener';
 import { AIBookModal } from './AIBookModal';
 import { ExchangeLogo } from './UI/Shared';
 import { BINANCE_ICON, BYBIT_ICON } from '../src/constants';
@@ -10,7 +10,7 @@ import { ChartBlock } from './ChartBlock';
 
 const MemoTable = React.memo(Table);
 const MemoMarketScreener = React.memo(MarketScreener);
-import { RowData, SettingsState, ExchangeSelection, MarketType, ExchangeConfig, STORAGE_PREFIX, DEFAULT_SETTINGS, getConfigsForMarket, DBUser, MarketCoin } from '../models';
+import { RowData, SettingsState, ExchangeSelection, MarketType, ExchangeConfig, STORAGE_PREFIX, DEFAULT_SETTINGS, getConfigsForMarket, DBUser } from '../models';
 import { SmarteyeEngineService, CONFIG } from '../services/smarteye-engine.service';
 import { User, Settings, ChevronDown, LayoutGrid, Check, Globe, RotateCcw, Star, Loader2, ChevronUp, BrainCircuit, ArrowUp, ArrowDown, BarChart2, Rewind, X, Maximize, Minimize, LogOut, Volume2 } from 'lucide-react';
 import { Logo } from './UI/Icons';
@@ -20,11 +20,36 @@ import { SubscriptionAvatar } from './UI/SubscriptionAvatar';
 import { SubscriptionPrompt } from './UI/SubscriptionPrompt';
 import { apiService } from '../services/api.service';
 import { simulatorService } from '../services/trading-simulator.service';
-import { isCoinExcluded } from '../src/lib/filters';
 
 import { LanguageSwitcher } from '../src/components/UI/LanguageSwitcher';
 
 import confetti from 'canvas-confetti';
+
+const isDensityExcluded = (symbol: string, exchange: string, marketType: string) => {
+  const baseAsset = symbol.replace('USDT', '');
+  const isBinance = exchange.includes('Binance');
+  const isBybit = exchange.includes('Bybit');
+  const isFutures = marketType === 'FUTURES';
+  const isSpot = marketType === 'SPOT';
+
+  if (isBinance) {
+    const allExcl = ['NEAR', 'AVAX', 'BCH', 'TAO', 'SHIB', 'RENDER', 'OP', 'FIL', 'INJ', 'AXS', 'LTC', 'SUI', 'POL'];
+    if (allExcl.includes(baseAsset)) return true;
+    if (isFutures && baseAsset === 'ONDO') return true;
+    if (isSpot && (baseAsset === 'ICP' || baseAsset === 'PENDLE')) return true;
+  }
+  
+  if (isBybit) {
+    const allExcl = ['NEAR', 'STX', 'STRK', 'PEPE'];
+    if (allExcl.includes(baseAsset)) return true;
+    const futExcl = ['AVAX', 'BCH', 'LTC', 'GALA', 'ENA', 'ONDO', 'SUI', '1000BONK', '1000FLOKI', 'SEI'];
+    if (isFutures && futExcl.includes(baseAsset)) return true;
+    const spotExcl = ['RENDER', 'OP'];
+    if (isSpot && spotExcl.includes(baseAsset)) return true;
+  }
+  
+  return false;
+};
 
 const Dashboard: React.FC<{ 
   onNavigateToProfile: (tab?: string, plan?: string) => void;
@@ -142,6 +167,14 @@ const Dashboard: React.FC<{
     return { key: 'none', dir: 'desc' };
   });
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
+
+  const filteredLongData = useMemo(() => 
+    longData.filter(d => !isDensityExcluded(d.pair, d.exchange || '', d.marketType || 'SPOT')),
+  [longData]);
+
+  const filteredShortData = useMemo(() => 
+    shortData.filter(d => !isDensityExcluded(d.pair, d.exchange || '', d.marketType || 'SPOT')),
+  [shortData]);
 
   const [selectedExchanges, setSelectedExchanges] = useState<ExchangeSelection>(() => {
     if (typeof localStorage !== 'undefined') {
@@ -593,12 +626,8 @@ const Dashboard: React.FC<{
   }, [engine]);
 
   useEffect(() => {
-    const subL = engine.longs$.subscribe(data => {
-      setLongData(data.filter(d => !isCoinExcluded(d)));
-    });
-    const subS = engine.shorts$.subscribe(data => {
-      setShortData(data.filter(d => !isCoinExcluded(d)));
-    });
+    const subL = engine.longs$.subscribe(setLongData);
+    const subS = engine.shorts$.subscribe(setShortData);
     engine.startPipeline(CONFIG.engineTickMs, (t) => t === 'SPOT' ? spotSettingsRef.current : futuresSettingsRef.current);
     
     const handleClickOutside = (event: MouseEvent) => {
@@ -1004,8 +1033,8 @@ const Dashboard: React.FC<{
               {/* COINS BLOCK - SCROLLABLE */}
               <div ref={scrollContainerRef} className="flex-1 overflow-y-auto bg-[#0a0a0a] relative custom-scroll scroll-smooth flex flex-col">
                 <MemoTable 
-                  shortData={shortData} 
-                  longData={longData} 
+                  shortData={filteredShortData} 
+                  longData={filteredLongData} 
                   language={language} 
                   onOpenAI={(coin) => {
                     if (checkSubscription('API Analysis')) {

@@ -5,7 +5,7 @@ import { ExchangeLogo } from './UI/Shared';
 import { Rewind, X, BrainCircuit, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { CustomUndoIcon, CustomRedoIcon } from './MarketScreener';
 import { Language } from '../src/translations';
-import { MarketCoin } from '../models';
+import { MarketCoin } from './MarketScreener';
 
 interface ChartBlockProps {
   previewCoin: MarketCoin | null;
