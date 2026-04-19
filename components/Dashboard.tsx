@@ -309,15 +309,21 @@ const Dashboard: React.FC<{
   // Load DB data
   useEffect(() => {
     const init = async () => {
-      if (dbUser) {
-        loadAlerts();
-        await loadSettings();
-        simulatorService.setUserId(dbUser.id, dbUser.balance);
-      } else {
-        // When not logged in, we already loaded from localStorage via initializers
-        simulatorService.setUserId(null);
+      setIsSettingsLoaded(false);
+      try {
+        if (dbUser) {
+          loadAlerts();
+          await loadSettings();
+          simulatorService.setUserId(dbUser.id, dbUser.balance);
+        } else {
+          // When not logged in, we already loaded from localStorage via initializers
+          simulatorService.setUserId(null);
+        }
+      } catch (e) {
+        console.error('Init error:', e);
+      } finally {
+        setIsSettingsLoaded(true);
       }
-      setIsSettingsLoaded(true);
     };
     init();
   }, [dbUser]);
@@ -385,11 +391,13 @@ const Dashboard: React.FC<{
   // Auto-save active coin and timeframe
   useEffect(() => {
     if (!isSettingsLoaded) return;
-    if (dbUser && previewCoin) {
-      saveCurrentSettings({ activeCoin: previewCoin, timeframe });
-    } else if (previewCoin) {
+    if (previewCoin) {
       localStorage.setItem('smarteye_activeCoin', JSON.stringify(previewCoin));
       localStorage.setItem('smarteye_timeframe', timeframe);
+      
+      if (dbUser) {
+        saveCurrentSettings({ activeCoin: previewCoin, timeframe });
+      }
     }
   }, [previewCoin, timeframe, dbUser, isSettingsLoaded]);
 

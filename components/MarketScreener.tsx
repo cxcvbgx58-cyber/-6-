@@ -750,9 +750,9 @@ const MarketScreener: React.FC<MarketScreenerProps> = ({
             const filtered = allRawData.filter(c => freshExchanges[c.exchange] && freshTypes[c.market]);
             
             // Prefer BTC as the absolute default if no selection exists
-            const defaultCoin = filtered.find(c => c.baseAsset === 'BTC' && c.market === 'SPOT') || 
-                                filtered[0] || 
+            const defaultCoin = allRawData.find(c => c.baseAsset === 'BTC' && c.market === 'SPOT') || 
                                 allRawData.find(c => c.baseAsset === 'BTC') ||
+                                filtered[0] ||
                                 allRawData[0] || 
                                 null;
             
@@ -797,9 +797,8 @@ const MarketScreener: React.FC<MarketScreenerProps> = ({
   // Ensure default coin selection triggers as soon as data and settings are both ready
   useEffect(() => {
     if (isSettingsLoaded && !previewCoin && data.length > 0) {
-      const filtered = data.filter(c => activeExchanges[c.exchange] && activeTypes[c.market]);
-      const defaultCoin = filtered.find(c => c.baseAsset === 'BTC' && c.market === 'SPOT') || 
-                          filtered[0] || 
+      // Find default BTC coin first, prioritizing BTC Spot
+      const defaultCoin = data.find(c => c.baseAsset === 'BTC' && c.market === 'SPOT') || 
                           data.find(c => c.baseAsset === 'BTC') ||
                           data[0];
       
@@ -809,7 +808,7 @@ const MarketScreener: React.FC<MarketScreenerProps> = ({
         localStorage.setItem('smarteye_activeCoin', JSON.stringify(defaultCoin));
       }
     }
-  }, [isSettingsLoaded, data.length, previewCoin, activeExchanges, activeTypes]);
+  }, [isSettingsLoaded, data.length, previewCoin]);
 
   // Real-time price updates for the previewed coin via server proxy
   useEffect(() => {
