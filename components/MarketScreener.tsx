@@ -949,8 +949,12 @@ const MarketScreener: React.FC<MarketScreenerProps> = ({
     setIsSearchFocused(false);
     if (shouldBlur && searchInputRef.current) searchInputRef.current.blur();
     if (clearSearch) setSearch(''); 
-    if (scrollToTop && scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTo({ top: 0 });
+    if (scrollToTop) {
+      if (chartContainerRef.current) {
+        chartContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     }
   }, [chartLayout, previewCoin]);
 
@@ -1600,7 +1604,7 @@ const MarketScreener: React.FC<MarketScreenerProps> = ({
                           if (el) itemRefs.current.set(id, el);
                           else itemRefs.current.delete(id);
                         }}
-                        onClick={() => selectCoin(coin, true, false, true)}
+                        onClick={() => selectCoin(coin, true, true, true)}
                         data-active={isActive}
                         className={`group flex flex-col h-full p-4 cursor-pointer relative transition-all duration-500 rounded-2xl border overflow-hidden ${
                           isActive
@@ -1710,7 +1714,7 @@ const MarketScreener: React.FC<MarketScreenerProps> = ({
                         if (el) itemRefs.current.set(id, el);
                         else itemRefs.current.delete(id);
                       }}
-                      onClick={() => selectCoin(coin, true, false, true)}
+                      onClick={() => selectCoin(coin, true, true, true)}
                       data-active={isActive}
                       className={`grid grid-cols-[24px_24px_36px_1fr_1.2fr_0.8fr_0.8fr] md:grid-cols-[30px_30px_50px_1.2fr_1fr_1fr_1fr_1fr_1fr_1fr] lg:grid-cols-[30px_30px_50px_1.2fr_1fr_1fr_1fr_1.1fr_1.8fr_1fr_1fr] gap-0 px-1.5 sm:px-3 mx-1 sm:mx-2 mb-2 items-stretch cursor-pointer transition-all duration-300 relative group/row rounded-2xl border ${
                         isActive 

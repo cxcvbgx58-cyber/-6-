@@ -350,7 +350,15 @@ const Dashboard: React.FC<{
       if (settings) {
         if (settings.spotSettings) setSpotSettings({ ...DEFAULT_SETTINGS, ...settings.spotSettings });
         if (settings.futuresSettings) setFuturesSettings({ ...DEFAULT_SETTINGS, ...settings.futuresSettings });
-        if (settings.activeCoin) setPreviewCoin(settings.activeCoin);
+        
+        if (settings.activeCoin) {
+          setPreviewCoin(settings.activeCoin);
+        } else {
+          // If no active coin in DB (new user), clear preview coin so screener picks the top one
+          setPreviewCoin(null);
+          localStorage.removeItem('smarteye_activeCoin');
+        }
+
         if (settings.timeframe) setTimeframe(settings.timeframe);
         if (settings.favorites) setFavorites(settings.favorites);
         if (settings.drawings) setDrawings(settings.drawings);
@@ -361,7 +369,10 @@ const Dashboard: React.FC<{
         if (settings.comparisonCoins) setComparisonCoins(settings.comparisonCoins);
         if (settings.chartLayout) setChartLayout(settings.chartLayout);
         if (settings.selectedExchanges) setSelectedExchanges(settings.selectedExchanges);
-        // Apply other settings if needed
+      } else {
+        // No settings at all (fresh registration)
+        setPreviewCoin(null);
+        localStorage.removeItem('smarteye_activeCoin');
       }
     } catch (error) {
       console.error('Failed to load settings:', error);
