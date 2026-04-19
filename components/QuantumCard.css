@@ -1,0 +1,457 @@
+
+.qc-hud-card {
+  --hud-bg: rgba(10, 12, 16, 0.85);
+  --hud-border: #94a3b8;
+  --hud-text: #ffffff;
+  --hud-dim: #64748b;
+  --hud-accent: #e2e8f0;
+  --hud-pos: #00ffaa;
+  --hud-neg: #ff3355;
+  --hud-glow: rgba(226, 232, 240, 0.45);
+  --hud-scan-color: rgba(226, 232, 240, 0.15);
+
+  width: 100%;
+  min-height: 420px;
+  position: relative;
+  background: var(--hud-bg);
+  font-family: 'JetBrains Mono', monospace;
+  padding: 0.125rem;
+  overflow: hidden;
+  backdrop-filter: blur(16px);
+  container-type: inline-size;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+}
+
+.qc-hud-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 15px 50px rgba(0,0,0,0.8), 0 0 15px rgba(255, 255, 255, 0.1);
+}
+
+/* Background Grid Pattern removed */
+
+/* Scanline */
+.qc-hud-scanline {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 20px;
+  background: linear-gradient(to bottom, transparent, var(--hud-scan-color), transparent);
+  animation: hud-scan 4s linear infinite;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+@keyframes hud-scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(500px); }
+}
+
+/* Content Container */
+.qc-hud-content {
+  position: relative;
+  z-index: 2;
+  padding: clamp(8px, 4cqw, 16px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  gap: clamp(6px, 3cqw, 12px);
+}
+
+/* Header */
+.qc-hud-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px dashed rgba(255,255,255,0.15);
+  padding-bottom: clamp(4px, 2cqw, 10px);
+}
+
+.qc-hud-header-left {
+  display: flex;
+  align-items: center;
+  gap: clamp(4px, 2cqw, 10px);
+}
+
+.qc-logo-wrapper {
+  position: relative;
+  border-radius: 9999px;
+  background: #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255,255,255,0.2);
+  box-shadow: inset 0 0 10px rgba(255,255,255,0.05);
+  overflow: hidden; 
+}
+
+/* Wrapper to apply the filter/outline to the clipped shape */
+.qc-logo-frame {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px;
+  /* Clean, centered shadow for a sharp outline */
+  filter: drop-shadow(0 0 0.5px rgba(100, 116, 139, 1));
+  transition: all 0.3s ease;
+  z-index: 10;
+  overflow: visible !important;
+}
+
+.qc-logo-frame:hover {
+  filter: drop-shadow(0 0 2px rgba(100, 116, 139, 1));
+  transform: translateY(-1px);
+}
+
+/* Barrel shape with smooth curved sides but sharp corners at top/bottom intersections */
+.qc-logo-convex {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.qc-logo {
+  object-fit: contain;
+  transition: transform 0.3s ease;
+}
+
+.qc-logo-binance {
+  width: clamp(12px, 5cqw, 20px);
+  height: clamp(12px, 5cqw, 20px);
+}
+
+.qc-logo-bybit {
+  width: clamp(36px, 15cqw, 60px);
+  height: clamp(12px, 5cqw, 20px);
+}
+
+.qc-hud-card:hover .qc-logo {
+  transform: scale(1.05);
+}
+
+.qc-hud-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.qc-hud-exchange {
+  font-size: clamp(7px, 2cqw, 10px);
+  color: var(--hud-dim);
+  letter-spacing: 1.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.qc-hud-pair {
+  font-size: clamp(12px, 5cqw, 20px);
+  color: var(--hud-text);
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.qc-hud-status {
+  position: absolute;
+  top: clamp(8px, 3cqw, 14px);
+  right: clamp(8px, 3cqw, 14px);
+  display: flex;
+  align-items: center;
+  gap: clamp(4px, 2cqw, 8px);
+  background: transparent;
+  padding: 4px clamp(8px, 3cqw, 12px);
+  border-radius: 6px;
+  border: 1px solid rgba(226, 232, 240, 0.2);
+  z-index: 10;
+}
+
+.qc-hud-status-text {
+  font-size: clamp(10px, 3cqw, 16px);
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.qc-hud-blinker {
+  width: clamp(6px, 2.5cqw, 10px);
+  height: clamp(6px, 2.5cqw, 10px);
+  border-radius: 50%;
+  animation: hud-blink 1s steps(2, start) infinite;
+}
+
+@keyframes hud-blink {
+  to { opacity: 0; }
+}
+
+/* Price Box */
+.qc-hud-price-box {
+  text-align: center;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: clamp(5px, 2cqw, 8px);
+  position: relative;
+  box-shadow: inset 0 0 30px rgba(255, 255, 255, 0.02);
+}
+
+.qc-hud-price-box::before, .qc-hud-price-box::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: clamp(8px, 3cqw, 14px);
+  background: var(--hud-dim);
+  transform: translateY(-50%);
+  opacity: 0.5;
+}
+.qc-hud-price-box::before { left: -1px; }
+.qc-hud-price-box::after { right: -1px; }
+
+.qc-hud-label-tiny {
+  font-size: clamp(7px, 2cqw, 10px);
+  color: var(--hud-dim);
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.qc-hud-price-val {
+  font-size: clamp(16px, 7cqw, 30px);
+  font-weight: 700;
+  color: var(--hud-text);
+  text-shadow: 0 0 20px var(--hud-glow), 0 0 40px rgba(255,255,255,0.1);
+  line-height: 1;
+}
+
+.qc-hud-currency {
+  font-size: clamp(6px, 2cqw, 9px);
+  color: var(--hud-dim);
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* Order Book Mini Section */
+.qc-hud-ob-section {
+  flex: 1;
+  min-height: clamp(70px, 25cqw, 120px);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.qc-ob-container {
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.qc-ob-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.qc-ob-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(4px, 2cqw, 10px);
+  font-size: clamp(8px, 2.5cqw, 11px);
+  padding: 2px 6px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 2px;
+  font-family: 'JetBrains Mono', monospace;
+  height: clamp(14px, 4cqw, 20px);
+}
+
+.qc-ob-price {
+  color: var(--hud-dim);
+  width: 40%;
+  font-size: clamp(7px, 2cqw, 10px);
+}
+
+.qc-ob-vol-container {
+  width: 60%;
+  height: 100%;
+  position: relative;
+  background: rgba(255,255,255,0.03);
+  display: flex;
+  align-items: center;
+}
+
+.qc-ob-bar {
+  position: absolute;
+  top: 0; right: 0;
+  height: 100%;
+  opacity: 0.6;
+}
+
+.qc-ob-vol-text {
+  position: relative;
+  z-index: 1;
+  font-size: clamp(6px, 2cqw, 9px);
+  color: #fff;
+  width: 100%;
+  text-align: right;
+  padding-right: 4px;
+  font-weight: 700;
+}
+
+.qc-ob-density-row {
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.02);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  animation: ob-pulse 2s infinite ease-in-out;
+}
+
+.qc-ob-density-row .qc-ob-price {
+  color: #fff;
+  font-weight: bold;
+}
+
+@keyframes ob-pulse {
+  0% { background: rgba(255, 255, 255, 0.03); }
+  50% { background: rgba(255, 255, 255, 0.06); }
+  100% { background: rgba(255, 255, 255, 0.03); }
+}
+
+/* Grid */
+.qc-hud-grid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding: 4px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.qc-hud-metric-box {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  position: relative;
+}
+
+/* Vertical stick separator */
+.qc-hud-metric-box:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 14px;
+  background: rgba(148, 163, 184, 0.3);
+  box-shadow: 0 0 2px rgba(255, 255, 255, 0.05);
+}
+
+.qc-metric-label {
+  font-size: clamp(7px, 2cqw, 10px);
+  color: var(--hud-dim);
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.qc-metric-value {
+  font-size: clamp(9px, 4cqw, 16px);
+  font-weight: 700;
+  color: var(--hud-text);
+}
+
+/* Colors */
+.text-accent { 
+  color: var(--hud-accent);
+  text-shadow: 0 0 12px var(--hud-glow);
+}
+.text-pos { color: var(--hud-pos); text-shadow: 0 0 10px rgba(0, 255, 170, 0.2); }
+.text-neg { color: var(--hud-neg); text-shadow: 0 0 10px rgba(255, 51, 85, 0.2); }
+
+/* Footer */
+.qc-hud-footer {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding-top: clamp(4px, 2cqw, 8px);
+  font-size: clamp(7px, 2cqw, 9px);
+  color: var(--hud-dim);
+  text-shadow: 0 0 5px rgba(0,0,0,0.5);
+}
+
+.qc-hud-market-type {
+  font-size: clamp(10px, 3cqw, 14px);
+}
+
+.qc-hud-analyze-btn {
+  font-size: clamp(6px, 1.8cqw, 8px);
+}
+
+.qc-coin-placeholder-text {
+  font-size: clamp(6px, 1.5cqw, 8px);
+}
+
+.qc-ob-header-text {
+  font-size: clamp(6px, 1.5cqw, 7px);
+}
+
+.qc-hud-status-label {
+  font-size: clamp(7px, 2cqw, 9px);
+}
+
+/* Media Query Refinements */
+@media (max-width: 1024px) {
+  .qc-hud-card { min-height: 360px; }
+  .qc-hud-content { padding: 12px; gap: 8px; }
+  .qc-hud-price-box { padding: 8px; }
+  .qc-hud-grid { gap: 6px; }
+  .qc-ob-row { height: 20px; font-size: 10px; }
+  .qc-ob-price { font-size: 9px; }
+  .qc-ob-vol-text { font-size: 9px; }
+}
+
+@media (max-width: 600px) {
+  .qc-hud-card { min-height: 300px; }
+  .qc-hud-content { padding: 8px; gap: 6px; }
+  .qc-hud-header { padding-bottom: 6px; }
+  .qc-hud-header-left { gap: 6px; }
+  .qc-hud-status { padding: 4px 8px; gap: 6px; }
+  .qc-hud-blinker { width: 8px; height: 8px; }
+  .qc-logo-bybit { width: 40px; height: 14px; }
+  .qc-logo-binance { width: 14px; height: 14px; }
+  .qc-hud-price-box { padding: 6px; }
+  .qc-hud-grid { gap: 4px; margin-top: 2px; }
+  .qc-hud-ob-section { min-height: 100px; }
+  .qc-hud-exchange { font-size: 9px; }
+  .qc-hud-status-text { font-size: 14px; }
+  .qc-hud-label-tiny { font-size: 9px; }
+  .qc-metric-label { font-size: 9px; }
+  .qc-hud-footer { font-size: 8px; padding-top: 4px; }
+  .qc-ob-row { height: 18px; font-size: 9px; }
+  .qc-ob-price { font-size: 8px; }
+  .qc-ob-vol-text { font-size: 8px; }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
