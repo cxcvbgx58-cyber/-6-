@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Virtuoso, VirtuosoGrid } from 'react-virtuoso';
 import { Search, Loader2, Star, ChevronUp, ChevronDown, Activity, GripHorizontal, Check, Sparkles, X, BookOpen, TrendingUp, Users, Globe, Zap, BrainCircuit, Plus, Bell, ArrowUp, ArrowDown, Maximize, Minimize } from 'lucide-react';
 import { CandlestickPlusIcon } from './UI/Icons';
 import { MiniChart } from './UI/MiniChart';
@@ -430,6 +429,26 @@ const MarketScreener: React.FC<MarketScreenerProps> = ({
   const [search, setSearch] = useState('');
   const [isExchangeFilterOpen, setIsExchangeFilterOpen] = useState(false);
   const [isTypeFilterOpen, setIsTypeFilterOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(24);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setVisibleCount(24);
+  }, [search, activeExchanges, activeTypes]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        setVisibleCount(prev => prev + 24);
+      }
+    }, { threshold: 0.1, rootMargin: '200px' });
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) observer.observe(currentRef);
+    return () => {
+      if (currentRef) observer.unobserve(currentRef);
+    };
+  }, [loading, data.length]);
 
   useEffect(() => {
     const subPos = simulatorService.positions$.subscribe(setPositions);
@@ -976,211 +995,6 @@ const MarketScreener: React.FC<MarketScreenerProps> = ({
     );
   };
 
-  const MarketCoinCard = useCallback(({ coin, idx }: { coin: MarketCoin, idx: number }) => {
-    const isPositive = coin.change24h >= 0;
-    const isActive = previewCoin?.symbol === coin.symbol && previewCoin?.market === coin.market && previewCoin?.exchange === coin.exchange;
-    
-    return (
-      <div 
-        onClick={() => selectCoin(coin)}
-        className={`h-full p-4 rounded-3xl border transition-all duration-500 group relative flex flex-col gap-4 overflow-hidden ${
-          isActive 
-          ? 'bg-gradient-to-br from-[#0d0d0d] to-[#050505] border-purple-500/50 shadow-[0_20px_50px_rgba(139,92,246,0.15)]' 
-          : 'bg-[#0a0a0a] border-white/5 hover:border-purple-500/30'
-        }`}
-      >
-        <div className="flex justify-between items-start z-10">
-          <div className="flex items-center gap-3">
-            <CoinLogo baseAsset={coin.baseAsset} size="w-12 h-12" padding="p-1.5" />
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-black text-white tracking-tight uppercase">{coin.symbol}</span>
-                <div className={`px-2 py-0.5 rounded-lg border text-[8px] font-black uppercase tracking-widest ${coin.market === 'FUTURES' ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
-                  {coin.market === 'FUTURES' ? 'PERP' : 'SPOT'}
-                </div>
-              </div>
-              <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{coin.exchange}</span>
-            </div>
-          </div>
-          <FavoriteStar 
-            coin={coin} 
-            isInitialFavorite={isFavorite(coin)} 
-            onToggle={toggleFavorite} 
-          />
-        </div>
-
-        <div className="flex flex-col z-10">
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black font-mono text-white">
-              ${coin.price < 0.0001 ? coin.price.toLocaleString(undefined, { minimumFractionDigits: 8, maximumFractionDigits: 8 }) : coin.price < 1 ? coin.price.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 }) : coin.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-            <div className={`flex items-center gap-0.5 text-[11px] font-black font-mono ${isPositive ? 'text-[#00ff88]' : 'text-[#ff3355]'}`}>
-              {isPositive ? <ArrowUp size={10} /> : <ArrowDown size={10} />}
-              <span>{Math.abs(coin.change24h).toFixed(2)}%</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{t.volume24h}:</span>
-            <span className="text-[10px] font-black text-zinc-400 font-mono">
-              ${coin.volume24h > 1000000 ? (coin.volume24h / 1000000).toFixed(1) + 'M' : (coin.volume24h / 1000).toFixed(1) + 'K'}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex-1 h-14 relative group-hover:opacity-100 opacity-60 transition-opacity">
-          <Sparkline symbol={coin.symbol} exchange={coin.exchange} market={coin.market} isLong={isPositive} />
-          <div className="absolute bottom-0 right-0">
-            <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest bg-black/40 px-1 rounded">24H</span>
-          </div>
-        </div>
-
-        <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onOpenAI) onOpenAI(coin);
-          }}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-rose-500/20 bg-[#050505] hover:bg-black hover:border-rose-500/40 transition-all group shadow-[0_0_15px_rgba(0,0,0,0.5)]"
-        >
-          <BrainCircuit className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
-          <span className="text-[11px] font-black text-white uppercase tracking-widest">{t.ai_analysis}</span>
-        </button>
-      </div>
-    );
-  }, [previewCoin, selectCoin, isFavorite, toggleFavorite, t, onOpenAI]);
-
-  const MarketCoinRow = useCallback(({ coin, idx }: { coin: MarketCoin, idx: number }) => {
-    const isActive = previewCoin?.symbol === coin.symbol && previewCoin?.market === coin.market && previewCoin?.exchange === coin.exchange;
-    return (
-      <div 
-        onClick={() => selectCoin(coin, true, false, true)}
-        data-active={isActive}
-        className={`grid grid-cols-[24px_24px_36px_1fr_1.2fr_0.8fr_0.8fr] md:grid-cols-[30px_30px_50px_1.2fr_1fr_1fr_1fr_1fr_1fr_1fr] lg:grid-cols-[30px_30px_50px_1.2fr_1fr_1fr_1fr_1.1fr_1.8fr_1fr_1fr] gap-0 px-1.5 sm:px-3 mx-1 sm:mx-2 mb-2 items-stretch cursor-pointer transition-all duration-300 relative group/row rounded-2xl border ${
-          isActive 
-          ? 'bg-[#0d0d0d] border-purple-500/30 shadow-[0_0_30px_rgba(139,92,246,0.15)]' 
-          : 'bg-[#0a0a0a] border-white/5 hover:bg-[#0d0d0d] hover:border-purple-500/30'
-        }`}
-      >
-        {isActive && (
-          <div className="absolute -left-1 top-2 bottom-2 w-1 bg-purple-500/40 rounded-full shadow-[0_0_15px_rgba(139,92,246,0.4)] z-20" />
-        )}
-
-        {/* 0. FAVORITES */}
-        <div className="relative flex z-10 items-center justify-center py-2 sm:py-3">
-          <FavoriteStar 
-            coin={coin} 
-            isInitialFavorite={isFavorite(coin)} 
-            onToggle={toggleFavorite} 
-            size={16}
-          />
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-5 sm:h-3 bg-purple-500/20" />
-        </div>
-
-        {/* 0.5 RANK */}
-        <div className="relative z-10 flex items-center justify-center py-2 sm:py-1">
-          <span className="text-[10px] sm:text-[10px] font-black text-white/40 font-mono tracking-tighter">
-            {idx + 1}
-          </span>
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-5 sm:h-3 bg-purple-500/20" />
-        </div>
-
-        {/* 1. LOGO */}
-        <div className="relative z-10 flex items-center justify-center py-2 sm:py-1">
-          <CoinLogo baseAsset={coin.baseAsset} size="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12" padding="p-1 sm:p-1.5" />
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-5 sm:h-3 bg-purple-500/20" />
-        </div>
-        
-        {/* 2. ASSET */}
-        <div className="relative z-10 flex flex-col justify-center items-center text-center px-1 py-2 sm:py-1">
-          <span className={`text-[12px] sm:text-[12px] font-black tracking-tight leading-none ${isActive ? 'text-white' : 'text-white/70'}`}>{coin.symbol}</span>
-          <span className="text-[6px] sm:text-[6px] text-zinc-700 uppercase font-black tracking-widest leading-none mt-0.5">{coin.exchange}</span>
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-5 sm:h-3 bg-purple-500/20" />
-        </div>
-
-        {/* 3. PRICE */}
-        <div className={`relative z-10 flex items-center justify-center px-0.5 py-2 sm:py-1`}>
-          <div className="flex items-center gap-1">
-            <span className={`text-[12px] sm:text-[13px] font-black font-mono leading-none ${isActive ? 'text-white' : 'text-white/95'}`}>
-              <span className="hidden lg:inline">
-                ${coin.price < 0.0001 ? coin.price.toLocaleString(undefined, { minimumFractionDigits: 8, maximumFractionDigits: 8 }) : coin.price < 1 ? coin.price.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 }) : coin.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              <span className="lg:hidden inline">
-                ${coin.price < 0.0001 ? coin.price.toLocaleString(undefined, { minimumFractionDigits: 8, maximumFractionDigits: 8 }) : coin.price < 1 ? coin.price.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 }) : coin.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </span>
-          </div>
-          
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-5 sm:h-3 bg-purple-500/20" />
-        </div>
-
-        {/* 5. PERCENTAGES */}
-        <div className={`relative z-10 flex items-center justify-center px-1 sm:px-1.5 py-2 sm:py-1`}>
-          <div className={`px-1 sm:px-1.5 h-6 sm:h-5 flex items-center justify-center shrink-0 transition-all duration-300 gap-1 ${
-            coin.change24h >= 0 ? 'text-[#00ff88]' : 'text-[#ff3355]'
-          }`}>
-            <span className="text-[10px] sm:text-[12px] font-black font-mono leading-none">
-              {coin.change24h >= 0 ? '+' : ''}{coin.change24h.toFixed(2)}%
-            </span>
-          </div>
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-5 sm:h-3 bg-purple-500/20" />
-        </div>
-
-        {/* 3.5 VOLUME */}
-        <div className="relative hidden md:flex z-10 flex-col justify-center items-center text-center px-1 py-1.5">
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] sm:text-[11px] font-black text-white/80 font-mono leading-none">
-              ${coin.volume24h > 1000000 ? (coin.volume24h / 1000000).toFixed(1) + 'M' : coin.volume24h > 1000 ? (coin.volume24h / 1000).toFixed(1) + 'K' : coin.volume24h.toFixed(0)}
-            </span>
-          </div>
-          <span className="text-[6px] text-zinc-600 uppercase font-black tracking-widest mt-1">{t.volume24h}</span>
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-5 sm:h-3 bg-purple-500/20" />
-        </div>
-
-        {/* 4. MARKET */}
-        <div className="relative hidden md:flex z-10 items-center justify-center px-1.5 py-1.5">
-          <div className={`flex items-center justify-center shrink-0 transition-all duration-300 qc-hud-market-type !text-[10px] sm:!text-[11px] text-white`}>
-            <span className="font-black uppercase tracking-[0.1em] font-mono leading-none">
-              {coin.market === 'FUTURES' ? 'ФЬЮЧЕРС' : 'СПОТ'}
-            </span>
-          </div>
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-4 bg-purple-500/20" />
-        </div>
-
-        {/* 6. TREND */}
-        <div className="relative hidden lg:flex z-10 items-center justify-center px-2 py-4">
-           <div className="w-full max-w-[192px] h-8">
-             <Sparkline symbol={coin.symbol} exchange={coin.exchange} market={coin.market} isLong={coin.change24h >= 0} />
-           </div>
-           <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-6 bg-purple-500/20" />
-        </div>
-
-        {/* 7. EXCHANGE LOGO */}
-        <div className="relative hidden md:flex z-10 items-center justify-center px-2 py-3">
-          <ExchangeLogo exchange={coin.exchange} size="w-14 h-7" />
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-5 sm:h-3 bg-purple-500/20" />
-        </div>
-
-        <div className={`relative flex z-10 items-center justify-center px-0.5 py-2 ${!isPortrait ? 'w-full md:w-auto' : ''}`}>
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onOpenAI) onOpenAI(coin);
-            }}
-            className={`flex items-center justify-center gap-1 xl:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-xl border border-rose-500/20 bg-black hover:bg-rose-500/5 hover:border-rose-500/40 transition-all group shadow-[0_4px_20px_rgba(0,0,0,0.4)] ${
-              !isPortrait ? 'w-full' : 'w-auto'
-            }`}
-          >
-            <BrainCircuit className={`${!isPortrait ? 'w-3 h-3' : 'w-3 h-3 md:w-3.5 md:h-3.5'} text-rose-400 group-hover:scale-110 transition-transform`} />
-            {(!isPortrait || true) && (
-              <span className={`text-[9px] md:text-[10px] font-black text-white/90 tracking-tighter uppercase whitespace-nowrap ${isPortrait ? 'hidden lg:inline' : 'inline'}`}>
-                {t.ai_analysis}
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
-    );
-  }, [previewCoin, selectCoin, isFavorite, toggleFavorite, t, onOpenAI, isPortrait]);
-
   return (
     <div className="flex flex-col h-full bg-transparent text-gray-300 font-rajdhani overflow-x-auto relative custom-scroll">
       
@@ -1725,29 +1539,274 @@ const MarketScreener: React.FC<MarketScreenerProps> = ({
                 <span className="text-xs mt-2">{t.try_changing_filters}</span>
               </div>
             ) : viewMode === 'grid' ? (
-              <VirtuosoGrid
-                style={{ height: '100%' }}
-                useWindowScroll
-                customScrollParent={scrollContainerRef.current || undefined}
-                data={filteredAndSortedData}
-                overscan={window.innerHeight * 2}
-                listClassName="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4 pb-24"
-                itemContent={(idx, coin) => (
-                  <MarketCoinCard key={`${coin.exchange}-${coin.market}-${coin.symbol}`} coin={coin} idx={idx} />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4 pb-24">
+                {filteredAndSortedData.slice(0, visibleCount).map((coin, idx) => {
+                    const isActive = previewCoin?.symbol === coin.symbol && previewCoin?.market === coin.market && previewCoin?.exchange === coin.exchange;
+                    const isPositive = coin.change24h >= 0;
+                    
+                    // Format price with space as thousands separator and comma for decimals
+                    const formatPrice = (val: number) => {
+                      const parts = val.toLocaleString('ru-RU', { 
+                        minimumFractionDigits: val < 1 ? 4 : 2, 
+                        maximumFractionDigits: val < 1 ? 4 : 2 
+                      }).split(',');
+                      return parts[0].replace(/\s/g, ' ') + (parts[1] ? ',' + parts[1] : '');
+                    };
+
+                    return (
+                      <div 
+                        key={`${coin.exchange}-${coin.market}-${coin.symbol}`}
+                        ref={el => {
+                          const id = `${coin.exchange}-${coin.market}-${coin.symbol}`;
+                          if (el) itemRefs.current.set(id, el);
+                          else itemRefs.current.delete(id);
+                        }}
+                        onClick={() => selectCoin(coin, true, false, true)}
+                        data-active={isActive}
+                        className={`group flex flex-col h-full p-4 cursor-pointer relative transition-all duration-500 rounded-2xl border overflow-hidden ${
+                          isActive
+                          ? 'bg-[#0d0d0d] border-purple-500/60 shadow-[0_0_50px_rgba(139,92,246,0.2)] ring-1 ring-purple-500/30' 
+                          : 'bg-[#080808] border-white/10 hover:border-purple-500/40 hover:bg-[#0a0a0a] hover:shadow-[0_0_30px_rgba(139,92,246,0.1)]'
+                        }`}
+                      >
+                        {/* HUD Scanline Effect */}
+                        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-10">
+                          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/[0.05] to-transparent h-[200%] animate-scanline" />
+                        </div>
+
+                        {/* FAVORITE STAR - TOP RIGHT */}
+                        <div className="absolute top-3 right-3 z-20">
+                          <FavoriteStar 
+                            coin={coin} 
+                            isInitialFavorite={isFavorite(coin)} 
+                            onToggle={toggleFavorite} 
+                            size={18}
+                          />
+                        </div>
+                        
+                        {/* TOP SECTION: LOGO, INFO, AI, CHANGE */}
+                        <div className="flex items-center justify-between mb-5 relative z-10">
+                          <div className="flex items-center gap-3">
+                            <div className="relative group-hover:scale-105 transition-transform duration-500">
+                              <CoinLogo baseAsset={coin.baseAsset} size="w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16" padding="p-2 md:p-2.5" />
+                            </div>
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-black text-zinc-600 font-mono">#{idx + 1}</span>
+                                <div className="flex items-baseline gap-2">
+                                  <span className={`text-xl font-black uppercase tracking-tight transition-colors leading-none ${isActive ? 'text-white' : 'text-zinc-200'}`}>
+                                    {coin.baseAsset}
+                                  </span>
+                                  <span className={`text-sm font-black font-mono leading-none ${
+                                    isPositive ? 'text-[#00ff88]' : 'text-[#ff3355]'
+                                  }`}>
+                                    {isPositive ? '+' : ''}{coin.change24h.toFixed(1)}%
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 mt-2">
+                                <ExchangeLogo exchange={coin.exchange} size="w-14 h-7" />
+                                <div className="w-[1px] h-3 bg-white/20" />
+                                <span className="text-[11px] font-black text-white uppercase tracking-widest font-mono">
+                                  {coin.market === 'FUTURES' ? t.futures : t.spot}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* PRICE BOX SECTION */}
+                        <div className="mt-auto relative z-10">
+                          <div className="flex items-center justify-between gap-4 mb-4">
+                            <div className="flex flex-col gap-1 relative z-10">
+                              <div className="flex items-baseline gap-1">
+                                <span className={`text-lg sm:text-xl font-black font-mono tracking-tighter leading-none ${isActive ? 'text-white' : 'text-white/90'}`}>
+                                  ${formatPrice(coin.price)}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 opacity-60">
+                                <span className="text-[9px] font-black font-mono uppercase tracking-widest text-zinc-400">
+                                  VOL: ${coin.volume24h > 1000000 ? (coin.volume24h / 1000000).toFixed(1) + 'M' : coin.volume24h > 1000 ? (coin.volume24h / 1000).toFixed(1) + 'K' : coin.volume24h.toFixed(0)}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div className="flex-1 h-14 relative group-hover:opacity-100 opacity-60 transition-opacity">
+                              <Sparkline symbol={coin.symbol} exchange={coin.exchange} market={coin.market} isLong={isPositive} />
+                              <div className="absolute bottom-0 right-0">
+                                <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest bg-black/40 px-1 rounded">24H</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onOpenAI) onOpenAI(coin);
+                            }}
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-rose-500/20 bg-[#050505] hover:bg-black hover:border-rose-500/40 transition-all group shadow-[0_0_15px_rgba(0,0,0,0.5)]"
+                          >
+                            <BrainCircuit className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
+                            <span className="text-[11px] font-black text-white uppercase tracking-widest">{t.ai_analysis}</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                })}
+                {visibleCount < filteredAndSortedData.length && (
+                  <div ref={loadMoreRef} className="col-span-full h-20 flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-purple-500/50" />
+                  </div>
                 )}
-              />
+              </div>
             ) : (
               <div className="w-full font-mono pb-24 overflow-x-auto custom-scroll">
-                <Virtuoso
-                  style={{ height: '100%' }}
-                  useWindowScroll
-                  customScrollParent={scrollContainerRef.current || undefined}
-                  data={filteredAndSortedData}
-                  overscan={window.innerHeight * 2}
-                  itemContent={(idx, coin) => (
-                    <MarketCoinRow key={`${coin.exchange}-${coin.market}-${coin.symbol}`} coin={coin} idx={idx} />
-                  )}
-                />
+                {filteredAndSortedData.slice(0, visibleCount).map((coin, idx) => {
+                  const isActive = previewCoin?.symbol === coin.symbol && previewCoin?.market === coin.market && previewCoin?.exchange === coin.exchange;
+                  return (
+                    <div 
+                      key={`${coin.exchange}-${coin.market}-${coin.symbol}`}
+                      ref={el => {
+                        const id = `${coin.exchange}-${coin.market}-${coin.symbol}`;
+                        if (el) itemRefs.current.set(id, el);
+                        else itemRefs.current.delete(id);
+                      }}
+                      onClick={() => selectCoin(coin, true, false, true)}
+                      data-active={isActive}
+                      className={`grid grid-cols-[24px_24px_36px_1fr_1.2fr_0.8fr_0.8fr] md:grid-cols-[30px_30px_50px_1.2fr_1fr_1fr_1fr_1fr_1fr_1fr] lg:grid-cols-[30px_30px_50px_1.2fr_1fr_1fr_1fr_1.1fr_1.8fr_1fr_1fr] gap-0 px-1.5 sm:px-3 mx-1 sm:mx-2 mb-2 items-stretch cursor-pointer transition-all duration-300 relative group/row rounded-2xl border ${
+                        isActive 
+                        ? 'bg-[#0d0d0d] border-purple-500/30 shadow-[0_0_30px_rgba(139,92,246,0.15)]' 
+                        : 'bg-[#0a0a0a] border-white/5 hover:bg-[#0d0d0d] hover:border-purple-500/30'
+                      }`}
+                    >
+                      {isActive && (
+                        <div className="absolute -left-1 top-2 bottom-2 w-1 bg-purple-500/40 rounded-full shadow-[0_0_15px_rgba(139,92,246,0.4)] z-20" />
+                      )}
+
+                      {/* 0. FAVORITES */}
+                      <div className="relative flex z-10 items-center justify-center py-2 sm:py-3">
+                        <FavoriteStar 
+                          coin={coin} 
+                          isInitialFavorite={isFavorite(coin)} 
+                          onToggle={toggleFavorite} 
+                          size={16}
+                        />
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-5 sm:h-3 bg-purple-500/20" />
+                      </div>
+
+                      {/* 0.5 RANK */}
+                      <div className="relative z-10 flex items-center justify-center py-2 sm:py-1">
+                        <span className="text-[10px] sm:text-[10px] font-black text-white/40 font-mono tracking-tighter">
+                          {idx + 1}
+                        </span>
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-5 sm:h-3 bg-purple-500/20" />
+                      </div>
+
+                      {/* 1. LOGO */}
+                      <div className="relative z-10 flex items-center justify-center py-2 sm:py-1">
+                        <CoinLogo baseAsset={coin.baseAsset} size="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12" padding="p-1 sm:p-1.5" />
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-5 sm:h-3 bg-purple-500/20" />
+                      </div>
+                      
+                      {/* 2. ASSET */}
+                      <div className="relative z-10 flex flex-col justify-center items-center text-center px-1 py-2 sm:py-1">
+                        <span className={`text-[12px] sm:text-[12px] font-black tracking-tight leading-none ${isActive ? 'text-white' : 'text-white/70'}`}>{coin.symbol}</span>
+                        <span className="text-[6px] sm:text-[6px] text-zinc-700 uppercase font-black tracking-widest leading-none mt-0.5">{coin.exchange}</span>
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-5 sm:h-3 bg-purple-500/20" />
+                      </div>
+
+                      {/* 3. PRICE */}
+                      <div className={`relative z-10 flex items-center justify-center px-0.5 py-2 sm:py-1`}>
+                        <div className="flex items-center gap-1">
+                          <span className={`text-[12px] sm:text-[13px] font-black font-mono leading-none ${isActive ? 'text-white' : 'text-white/95'}`}>
+                            <span className="hidden lg:inline">
+                              ${coin.price < 0.0001 ? coin.price.toLocaleString(undefined, { minimumFractionDigits: 8, maximumFractionDigits: 8 }) : coin.price < 1 ? coin.price.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 }) : coin.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="lg:hidden inline">
+                              ${coin.price < 0.0001 ? coin.price.toLocaleString(undefined, { minimumFractionDigits: 8, maximumFractionDigits: 8 }) : coin.price < 1 ? coin.price.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 }) : coin.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </span>
+                        </div>
+                        
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-5 sm:h-3 bg-purple-500/20" />
+                      </div>
+
+                      {/* 5. PERCENTAGES */}
+                      <div className={`relative z-10 flex items-center justify-center px-1 sm:px-1.5 py-2 sm:py-1`}>
+                        <div className={`px-1 sm:px-1.5 h-6 sm:h-5 flex items-center justify-center shrink-0 transition-all duration-300 gap-1 ${
+                          coin.change24h >= 0 ? 'text-[#00ff88]' : 'text-[#ff3355]'
+                        }`}>
+                          <span className="text-[10px] sm:text-[12px] font-black font-mono leading-none">
+                            {coin.change24h >= 0 ? '+' : ''}{coin.change24h.toFixed(2)}%
+                          </span>
+                        </div>
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-5 sm:h-3 bg-purple-500/20" />
+                      </div>
+
+                      {/* 3.5 VOLUME */}
+                      <div className="relative hidden md:flex z-10 flex-col justify-center items-center text-center px-1 py-1.5">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] sm:text-[11px] font-black text-white/80 font-mono leading-none">
+                            ${coin.volume24h > 1000000 ? (coin.volume24h / 1000000).toFixed(1) + 'M' : coin.volume24h > 1000 ? (coin.volume24h / 1000).toFixed(1) + 'K' : coin.volume24h.toFixed(0)}
+                          </span>
+                        </div>
+                        <span className="text-[6px] text-zinc-600 uppercase font-black tracking-widest mt-1">{t.volume24h}</span>
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-5 sm:h-3 bg-purple-500/20" />
+                      </div>
+
+                      {/* 4. MARKET */}
+                      <div className="relative hidden md:flex z-10 items-center justify-center px-1.5 py-1.5">
+                        <div className={`flex items-center justify-center shrink-0 transition-all duration-300 qc-hud-market-type !text-[10px] sm:!text-[11px] text-white`}>
+                          <span className="font-black uppercase tracking-[0.1em] font-mono leading-none">
+                            {coin.market === 'FUTURES' ? 'ФЬЮЧЕРС' : 'СПОТ'}
+                          </span>
+                        </div>
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-4 bg-purple-500/20" />
+                      </div>
+
+                      {/* 6. TREND */}
+                      <div className="relative hidden lg:flex z-10 items-center justify-center px-2 py-4">
+                         <div className="w-full max-w-[192px] h-8">
+                           <Sparkline symbol={coin.symbol} exchange={coin.exchange} market={coin.market} isLong={coin.change24h >= 0} />
+                         </div>
+                         <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-6 bg-purple-500/20" />
+                      </div>
+
+                      {/* 7. EXCHANGE LOGO */}
+                      <div className="relative hidden md:flex z-10 items-center justify-center px-2 py-3">
+                        <ExchangeLogo exchange={coin.exchange} size="w-14 h-7" />
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[1px] h-5 sm:h-3 bg-purple-500/20" />
+                      </div>
+
+                      {/* 3.5 AI BUTTON (Unified for Mobile/Desktop) */}
+                      <div className={`relative flex z-10 items-center justify-center px-0.5 py-2 ${!isPortrait ? 'w-full md:w-auto' : ''}`}>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onOpenAI) onOpenAI(coin);
+                          }}
+                          className={`flex items-center justify-center rounded-lg border border-rose-500/40 bg-gradient-to-r from-purple-950/80 to-rose-900/80 hover:from-purple-900 hover:to-rose-800 transition-all group shadow-[0_0_10px_rgba(225,29,72,0.2)] ${
+                            // Responsive sizing
+                            'md:px-4 md:py-1.5 md:gap-2 md:w-auto ' + 
+                            (!isPortrait ? 'px-3 py-1.5 gap-2 w-full' : 'w-7 h-7 md:w-auto md:h-auto')
+                          }`}
+                        >
+                          <BrainCircuit className={`${!isPortrait ? 'w-3 h-3' : 'w-3 h-3 md:w-3.5 md:h-3.5'} text-rose-400 group-hover:scale-110 transition-transform`} />
+                          {(!isPortrait || true) && (
+                            <span className={`text-[9px] md:text-[10px] font-black text-white/90 tracking-tighter uppercase whitespace-nowrap ${isPortrait ? 'hidden lg:inline' : 'inline'}`}>
+                              {t.ai_analysis}
+                            </span>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {visibleCount < filteredAndSortedData.length && (
+                  <div ref={loadMoreRef} className="w-full h-20 flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-purple-500/50" />
+                  </div>
+                )}
               </div>
             )}
           </div>
